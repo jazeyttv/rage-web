@@ -404,9 +404,12 @@
         <td style="color:var(--dim)">${new Date(u.created_at).toLocaleDateString()}</td>
         <td>
           <div class="admin-actions">
-            <button class="btn btn-outline btn-sm" onclick="toggleRole(${u.id}, '${u.role}')">
-              ${u.role === 'admin' ? 'Make User' : 'Make Admin'}
-            </button>
+            <select class="form-input" style="width:140px;padding:4px 8px;font-size:0.76rem;" onchange="setRole(${u.id}, this.value, this)">
+              <option value="user"           ${u.role==='user'?'selected':''}>User</option>
+              <option value="admin"          ${u.role==='admin'?'selected':''}>Admin</option>
+              <option value="hwid_team"      ${u.role==='hwid_team'?'selected':''}>HWID Team</option>
+              <option value="blacklist_team" ${u.role==='blacklist_team'?'selected':''}>Blacklist Team</option>
+            </select>
             <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${u.username}')">Delete</button>
           </div>
         </td>
@@ -496,10 +499,9 @@
     await loadAll();
   }
 
-  async function toggleRole(id, current) {
-    const newRole = current === 'admin' ? 'user' : 'admin';
-    if (!confirm(`Change this user to ${newRole}?`)) return;
-    await api(`/admin/users/${id}/role`, { method: 'PATCH', body: { role: newRole } });
+  async function setRole(id, role, sel) {
+    if (!confirm(`Set this user's role to "${role}"?`)) { await loadAll(); return; }
+    await api(`/admin/users/${id}/role`, { method: 'PATCH', body: { role } });
     await loadAll();
   }
 

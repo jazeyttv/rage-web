@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blacklist Panel — rage.lua</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+  <div class="nav-right">
+    <span style="font-size:0.78rem;color:var(--dim);border:1px solid var(--border);padding:3px 10px;border-radius:99px;">Blacklist Team</span>
+    <span style="font-size:0.82rem;color:var(--dim)" id="navUser"></span>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-greeting">Blacklist Panel</div>
+  <div class="page-sub">Revoke and manage access for all license keys.</div>
+
+  <!-- Stats -->
+  <div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-card"><div class="stat-num" id="sTotal">—</div><div class="stat-label">Total Keys</div></div>
+    <div class="stat-card"><div class="stat-num" id="sActive" style="color:var(--green)">—</div><div class="stat-label">Active</div></div>
+    <div class="stat-card"><div class="stat-num" id="sRevoked" style="color:var(--red)">—</div><div class="stat-label">Revoked</div></div>
+  </div>
+
+  <!-- Filter -->
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+    <input type="text" id="search" placeholder="Search key, user, or product..." oninput="render()"
+      style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 12px;font-size:0.82rem;outline:none;width:240px;" />
+    <select id="filter" onchange="render()"
+      style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 12px;font-size:0.82rem;outline:none;">
+      <option value="all">All Keys</option>
+      <option value="active">Active Only</option>
+      <option value="revoked">Revoked Only</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Key Code</th>
+          <th>Product</th>
+          <th>User</th>
+          <th>HWID</th>
+          <th>Expires</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="7" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location = '/login';
+  function parseJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
+  const payload = parseJwt(token);
+  if (!payload || !['admin','blacklist_team'].includes(payload.role)) window.location = '/dashboard';
+  document.getElementById('navUser').textContent = payload.username;
+
+  function logout() { localStorage.clear(); window.location = '/login'; }
+  function api(path, opts={}) {
+    return fetch('/api'+path, { ...opts, headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...(opts.headers||{}) }, body: opts.body ? JSON.stringify(opts.body) : undefined }).then(r=>r.json());
+  }
+
+  let allKeys = [];
+
+  async function load() {
+    const [stats, keys] = await Promise.all([api('/blacklist/stats'), api('/blacklist/keys')]);
+    document.getElementById('sTotal').textContent   = stats.total;
+    document.getElementById('sActive').textContent  = stats.active;
+    document.getElementById('sRevoked').textContent = stats.revoked;
+    allKeys = keys;
+    render();
+  }
+
+  function render() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const f = document.getElementById('filter').value;
+
+    const rows = allKeys.filter(k => {
+      const match = !q || k.key_code.toLowerCase().includes(q) ||
+                    (k.assigned_to||'').toLowerCase().includes(q) ||
+                    (k.product||'').toLowerCase().includes(q);
+      if (!match) return false;
+      if (f === 'active')  return !!k.active;
+      if (f === 'revoked') return !k.active;
+      return true;
+    });
+
+    const tbody = document.getElementById('tbody');
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">No results.</td></tr>'; return; }
+
+    tbody.innerHTML = rows.map(k => {
+      const active = !!k.active;
+      const expires = k.expires_at ? new Date(k.expires_at).toLocaleString() : 'Lifetime';
+      return `
+        <tr>
+          <td class="mono">${k.key_code}</td>
+          <td class="bold">${k.product}</td>
+          <td>${k.assigned_to || '<span style="color:var(--dim)">Unassigned</span>'}</td>
+          <td style="font-size:0.76rem;color:var(--dim);">${k.hwid ? 'Bound' : '—'}</td>
+          <td style="font-size:0.8rem;color:var(--dim);">${expires}</td>
+          <td>
+            ${active
+              ? '<span class="badge badge-green"><span class="pill-dot green"></span> Active</span>'
+              : '<span class="badge badge-red">Revoked</span>'}
+          </td>
+          <td>
+            ${active
+              ? `<button class="btn btn-danger btn-sm" onclick="revoke(${k.id})">Revoke</button>`
+              : `<button class="btn btn-outline btn-sm" onclick="activate(${k.id})">Activate</button>`}
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function revoke(id) {
+    if (!confirm('Revoke this key? The user will immediately lose access.')) return;
+    await api(`/blacklist/keys/${id}/revoke`, { method: 'PATCH' });
+    await load();
+  }
+
+  async function activate(id) {
+    await api(`/blacklist/keys/${id}/activate`, { method: 'PATCH' });
+    await load();
+  }
+
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HWID Panel — rage.lua</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+  <div class="nav-right">
+    <span style="font-size:0.78rem;color:var(--dim);border:1px solid var(--border);padding:3px 10px;border-radius:99px;">HWID Team</span>
+    <span style="font-size:0.82rem;color:var(--dim)" id="navUser"></span>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-greeting">HWID Panel</div>
+  <div class="page-sub">View and reset HWID bindings for all keys.</div>
+
+  <!-- Stats -->
+  <div class="stats-row" style="margin-bottom:28px;">
+    <div class="stat-card"><div class="stat-num" id="sTotal">—</div><div class="stat-label">Total Keys</div></div>
+    <div class="stat-card"><div class="stat-num" id="sBound">—</div><div class="stat-label">HWID Bound</div></div>
+    <div class="stat-card"><div class="stat-num" id="sUnbound" style="color:var(--dim)">—</div><div class="stat-label">Unbound</div></div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-row" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+    <input type="text" id="search" placeholder="Search key or user..." oninput="render()"
+      style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 12px;font-size:0.82rem;outline:none;width:220px;" />
+    <select id="filter" onchange="render()"
+      style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 12px;font-size:0.82rem;outline:none;">
+      <option value="all">All Keys</option>
+      <option value="bound">HWID Bound</option>
+      <option value="unbound">Unbound</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Key Code</th>
+          <th>Product</th>
+          <th>User</th>
+          <th>HWID</th>
+          <th>Bound At</th>
+          <th>Last Seen</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="7" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location = '/login';
+  function parseJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
+  const payload = parseJwt(token);
+  if (!payload || !['admin','hwid_team'].includes(payload.role)) window.location = '/dashboard';
+  document.getElementById('navUser').textContent = payload.username;
+
+  function logout() { localStorage.clear(); window.location = '/login'; }
+  function api(path, opts={}) {
+    return fetch('/api'+path, { ...opts, headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...(opts.headers||{}) }, body: opts.body ? JSON.stringify(opts.body) : undefined }).then(r=>r.json());
+  }
+
+  let allKeys = [];
+
+  async function load() {
+    const [stats, keys] = await Promise.all([api('/hwid/stats'), api('/hwid/keys')]);
+    document.getElementById('sTotal').textContent = stats.total;
+    document.getElementById('sBound').textContent = stats.bound;
+    document.getElementById('sUnbound').textContent = stats.unbound;
+    allKeys = keys;
+    render();
+  }
+
+  function render() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const f = document.getElementById('filter').value;
+    const rows = allKeys.filter(k => {
+      const match = !q || k.key_code.toLowerCase().includes(q) || (k.assigned_to||'').toLowerCase().includes(q) || (k.hwid||'').toLowerCase().includes(q);
+      if (!match) return false;
+      if (f === 'bound') return !!k.hwid;
+      if (f === 'unbound') return !k.hwid;
+      return true;
+    });
+
+    const tbody = document.getElementById('tbody');
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">No results.</td></tr>'; return; }
+
+    tbody.innerHTML = rows.map(k => `
+      <tr>
+        <td class="mono">${k.key_code}</td>
+        <td class="bold">${k.product}</td>
+        <td>${k.assigned_to || '<span style="color:var(--dim)">—</span>'}</td>
+        <td style="font-family:monospace;font-size:0.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;">
+          ${k.hwid ? `<span title="${k.hwid}">${k.hwid.slice(0,28)}…</span>` : '<span style="color:var(--dim)">Not bound</span>'}
+        </td>
+        <td style="color:var(--dim);font-size:0.8rem;">${k.hwid_bound_at ? new Date(k.hwid_bound_at).toLocaleString() : '—'}</td>
+        <td style="color:var(--dim);font-size:0.8rem;">${k.last_seen ? new Date(k.last_seen).toLocaleString() : '—'}</td>
+        <td>
+          ${k.hwid ? `<button class="btn btn-outline btn-sm" onclick="resetHwid(${k.id})">Reset HWID</button>` : '<span style="color:var(--dim);font-size:0.78rem;">—</span>'}
+        </td>
+      </tr>`).join('');
+  }
+
+  async function resetHwid(id) {
+    if (!confirm('Reset HWID for this key? The user will need to re-bind on their PC.')) return;
+    await api(`/hwid/keys/${id}/reset-hwid`, { method: 'PATCH' });
+    await load();
+  }
+
+  load();
+</script>
+</body>
+</html>
