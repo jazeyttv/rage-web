@@ -106,20 +106,32 @@ admin_required     = role_required("admin")
 hwid_required      = role_required("admin", "hwid_team")
 blacklist_required = role_required("admin", "blacklist_team")
 
+# ── Error handlers (always return JSON for /api/* routes) ─────────────────────
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith("/api/"):
+        return jsonify(error="Not found"), 404
+    return send_from_directory(str(PUBLIC), "index.html"), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    if request.path.startswith("/api/"):
+        return jsonify(error="Server error", detail=str(e)), 500
+    return send_from_directory(str(PUBLIC), "index.html"), 500
+
+@app.errorhandler(Exception)
+def unhandled(e):
+    app.logger.error(f"Unhandled exception: {e}", exc_info=True)
+    if request.path.startswith("/api/"):
+        return jsonify(error=str(e)), 500
+    return send_from_directory(str(PUBLIC), "index.html"), 500
+
 # ── Static files ───────────────────────────────────────────────────────────────
 @app.route("/style.css")
 def serve_css():
     return send_from_directory(str(PUBLIC), "style.css")
 
-@app.route("/<path:filename>")
-def serve_static(filename):
-    # Only serve actual static files (css, js, images etc), not page routes
-    filepath = PUBLIC / filename
-    if filepath.exists() and filepath.is_file():
-        return send_from_directory(str(PUBLIC), filename)
-    return send_from_directory(str(PUBLIC), "index.html"), 404
-
-# ── Pages (explicit routes — must come before catch-all) ──────────────────────
+# ── Pages ──────────────────────────────────────────────────────────────────────
 @app.route("/")
 def page_index():        return send_from_directory(str(PUBLIC), "index.html")
 
