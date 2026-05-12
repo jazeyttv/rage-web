@@ -1,4 +1,4 @@
 flask
 bcrypt
 pyjwt
-psycopg2-binary
+pymongo[srv]
