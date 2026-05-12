@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — rage.lua</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* Key card style matching screenshot */
+    .key-table-wrap {
+      margin-top: 8px;
+    }
+
+    .key-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .key-table th {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      padding: 0 0 12px 0;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .key-table td {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .key-table tr:last-child td { border-bottom: none; }
+
+    .key-table .col-product {
+      color: #7da8e8;
+      font-size: 0.88rem;
+      width: 50%;
+    }
+
+    .key-table .col-expiry {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.88rem;
+    }
+
+    .key-table .col-status {
+      text-align: right;
+      width: 110px;
+    }
+
+    .key-row-revoked .col-product,
+    .key-row-revoked .col-expiry { opacity: 0.4; text-decoration: line-through; }
+
+    .key-detail {
+      font-size: 0.75rem;
+      color: var(--dim);
+      margin-top: 3px;
+      font-family: 'Consolas', monospace;
+    }
+
+    .nav-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--dim);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+  <div class="nav-right">
+    <div class="nav-user">
+      <span id="navUser">—</span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-greeting" id="greeting">Loading...</div>
+  <div class="page-sub">Here's what's new today</div>
+
+  <!-- Keys table -->
+  <div class="key-table-wrap">
+    <table class="key-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Expires At</th>
+          <th style="text-align:right">Status</th>
+        </tr>
+      </thead>
+      <tbody id="keyBody">
+        <tr><td colspan="3" class="empty" style="padding:40px 0;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location = '/login';
+
+  function parseJwt(t) {
+    try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; }
+  }
+
+  const payload = parseJwt(token);
+  if (!payload) { localStorage.clear(); window.location = '/login'; }
+
+  // Redirect admin to admin panel
+  if (payload.role === 'admin') window.location = '/admin';
+
+  function logout() {
+    localStorage.clear();
+    window.location = '/login';
+  }
+
+  function greeting() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function fmtExpiry(v) {
+    if (!v) return 'Lifetime';
+    const d = new Date(v);
+    const now = new Date();
+    if (d < now) return d.toISOString().replace('T', ' ').slice(0, 19) + ' (Expired)';
+    return d.toISOString().replace('T', ' ').slice(0, 19);
+  }
+
+  async function load() {
+    try {
+      const [meRes, keysRes] = await Promise.all([
+        fetch('/api/user/me',   { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/user/keys', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      if (meRes.status === 401) { localStorage.clear(); window.location = '/login'; return; }
+
+      const me   = await meRes.json();
+      const keys = await keysRes.json();
+
+      document.getElementById('navUser').textContent = me.username;
+      document.getElementById('greeting').textContent = `${greeting()}, ${me.username}`;
+
+      const tbody = document.getElementById('keyBody');
+
+      if (!keys.length) {
+        tbody.innerHTML = `<tr><td colspan="3" class="empty" style="padding:48px 0;color:var(--dim);font-size:0.85rem;">No active keys. Contact an admin to get access.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = keys.map(k => {
+        const expired  = k.expires_at && new Date(k.expires_at) < new Date();
+        const inactive = !k.active || expired;
+        return `
+          <tr class="${inactive ? 'key-row-revoked' : ''}">
+            <td class="col-product">
+              ${k.product}
+              <div class="key-detail">${k.key_code}</div>
+            </td>
+            <td class="col-expiry">${fmtExpiry(k.expires_at)}</td>
+            <td class="col-status">
+              ${inactive
+                ? `<span class="badge badge-red">${expired ? 'Expired' : 'Revoked'}</span>`
+                : `<span class="badge badge-green"><span class="pill-dot green"></span>Active</span>`}
+            </td>
+          </tr>`;
+      }).join('');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

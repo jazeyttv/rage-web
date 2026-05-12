@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — rage.lua</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .admin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .copied { color: var(--green) !important; }
+
+    .key-code-cell {
+      font-family: 'Consolas', monospace;
+      font-size: 0.78rem;
+      color: var(--text);
+      cursor: pointer;
+      user-select: all;
+    }
+    .key-code-cell:hover { opacity: 0.7; }
+
+    .generate-panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      margin-bottom: 24px;
+    }
+
+    .generate-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 2fr 0.7fr;
+      gap: 12px;
+      align-end: end;
+    }
+
+    @media (max-width: 700px) {
+      .generate-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .generate-grid .btn { align-self: flex-end; padding: 9px 16px; justify-content: center; }
+
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .filter-row input {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      outline: none;
+      width: 200px;
+    }
+    .filter-row input:focus { border-color: #555; }
+    .filter-row input::placeholder { color: var(--dim2); }
+
+    .generated-keys-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-family: 'Consolas', monospace;
+      font-size: 0.8rem;
+      color: var(--green);
+      margin-top: 12px;
+      max-height: 160px;
+      overflow-y: auto;
+      display: none;
+      white-space: pre;
+    }
+    .generated-keys-box.show { display: block; }
+
+    .tag-admin {
+      display: inline-block;
+      padding: 1px 7px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 4px;
+      font-size: 0.72rem;
+      color: var(--dim);
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+  <div class="nav-right">
+    <span style="font-size:0.8rem;color:var(--dim)" id="navUser">Admin</span>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+    <div class="page-greeting" id="greeting">Admin Panel</div>
+  </div>
+  <div class="page-sub">Manage users, keys, and access.</div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="stat-num" id="sUsers">—</div><div class="stat-label">Users</div></div>
+    <div class="stat-card"><div class="stat-num" id="sKeys">—</div><div class="stat-label">Total Keys</div></div>
+    <div class="stat-card"><div class="stat-num" id="sActive">—</div><div class="stat-label">Active Keys</div></div>
+    <div class="stat-card"><div class="stat-num" id="sExpiring" style="color:var(--red)">—</div><div class="stat-label">Expiring (7d)</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('keys',this)">Keys</button>
+    <button class="tab-btn" onclick="switchTab('users',this)">Users</button>
+  </div>
+
+  <!-- KEYS TAB -->
+  <div id="tab-keys" class="tab-panel active">
+
+    <!-- Generate form -->
+    <div class="generate-panel">
+      <div class="section-title" style="margin-bottom:14px;">Generate Keys</div>
+      <div class="generate-grid">
+        <div class="form-group">
+          <label class="form-label">Product Name</label>
+          <input class="form-input" type="text" id="genProduct" placeholder="rage.lua — Standard" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expires At (blank = lifetime)</label>
+          <input class="form-input" type="datetime-local" id="genExpiry" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assign to User (optional)</label>
+          <select class="form-input" id="genUser">
+            <option value="">— Unassigned —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Count</label>
+          <input class="form-input" type="number" id="genCount" value="1" min="1" max="50" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;align-items:center;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Note (optional)</label>
+          <input class="form-input" type="text" id="genNote" placeholder="e.g. Discord purchase" />
+        </div>
+        <button class="btn btn-solid btn-sm" style="margin-top:22px;padding:9px 20px;" onclick="generateKeys()">Generate</button>
+      </div>
+      <div class="generated-keys-box" id="genOutput"></div>
+    </div>
+
+    <!-- Keys filter + table -->
+    <div class="filter-row">
+      <input type="text" id="keySearch" placeholder="Search keys or users..." oninput="filterKeys()" />
+      <select class="form-input" style="width:140px;" id="keyFilter" onchange="filterKeys()">
+        <option value="all">All Keys</option>
+        <option value="active">Active Only</option>
+        <option value="inactive">Inactive</option>
+        <option value="unassigned">Unassigned</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Key Code</th>
+            <th>Product</th>
+            <th>User</th>
+            <th>Expires</th>
+            <th>HWID</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="keyBody">
+          <tr><td colspan="7" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- USERS TAB -->
+  <div id="tab-users" class="tab-panel">
+    <div class="filter-row">
+      <input type="text" id="userSearch" placeholder="Search users..." oninput="filterUsers()" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Keys</th>
+            <th>Joined</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="userBody">
+          <tr><td colspan="6" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal-overlay" id="assignModal">
+  <div class="modal">
+    <div class="modal-title">Assign Key to User</div>
+    <div class="modal-form">
+      <div class="form-group">
+        <label class="form-label">Select User</label>
+        <select class="form-input" id="assignUser"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('assignModal')">Cancel</button>
+      <button class="btn btn-solid btn-sm" onclick="doAssign()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- Expiry Modal -->
+<div class="modal-overlay" id="expiryModal">
+  <div class="modal">
+    <div class="modal-title">Update Expiry</div>
+    <div class="modal-form">
+      <div class="form-group">
+        <label class="form-label">New Expiry (blank = lifetime)</label>
+        <input class="form-input" type="datetime-local" id="newExpiry" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('expiryModal')">Cancel</button>
+      <button class="btn btn-solid btn-sm" onclick="doUpdateExpiry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location = '/login';
+
+  function parseJwt(t) { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } }
+  const payload = parseJwt(token);
+  if (!payload || payload.role !== 'admin') window.location = '/dashboard';
+
+  document.getElementById('navUser').textContent = payload.username;
+  document.getElementById('greeting').textContent = `${greeting()}, ${payload.username}`;
+
+  function greeting() {
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  }
+
+  function logout() { localStorage.clear(); window.location = '/login'; }
+
+  function api(path, opts = {}) {
+    return fetch('/api' + path, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(opts.headers || {}) },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    }).then(r => { if (r.status === 401) { localStorage.clear(); window.location = '/login'; } return r.json(); });
+  }
+
+  function switchTab(id, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function fmtDate(v) {
+    if (!v) return '<span style="color:var(--dim)">Lifetime</span>';
+    const d = new Date(v);
+    const expired = d < new Date();
+    const str = d.toISOString().replace('T', ' ').slice(0, 16);
+    return expired ? `<span style="color:var(--red)">${str}</span>` : str;
+  }
+
+  function fmtDateShort(v) {
+    if (!v) return 'Lifetime';
+    return new Date(v).toISOString().replace('T', ' ').slice(0, 16);
+  }
+
+  // ── Data ─────────────────────────────────────────────────────────────────────
+  let allKeys  = [];
+  let allUsers = [];
+  let assigningKeyId = null;
+  let updatingKeyId  = null;
+
+  async function loadAll() {
+    const [stats, keys, users] = await Promise.all([
+      api('/admin/stats'),
+      api('/admin/keys'),
+      api('/admin/users'),
+    ]);
+
+    // Stats
+    document.getElementById('sUsers').textContent   = stats.users;
+    document.getElementById('sKeys').textContent    = stats.keys;
+    document.getElementById('sActive').textContent  = stats.active;
+    document.getElementById('sExpiring').textContent = stats.expiring;
+
+    allKeys  = keys;
+    allUsers = users;
+
+    // Populate user selects
+    const opts = users.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+    document.getElementById('genUser').innerHTML   = '<option value="">— Unassigned —</option>' + opts;
+    document.getElementById('assignUser').innerHTML = opts;
+
+    renderKeys();
+    renderUsers();
+  }
+
+  // ── Keys rendering ────────────────────────────────────────────────────────────
+  function filterKeys() { renderKeys(); }
+
+  function renderKeys() {
+    const q      = document.getElementById('keySearch').value.toLowerCase();
+    const filter = document.getElementById('keyFilter').value;
+
+    const rows = allKeys.filter(k => {
+      const match = !q || k.key_code.toLowerCase().includes(q) ||
+                    (k.product || '').toLowerCase().includes(q) ||
+                    (k.assigned_to || '').toLowerCase().includes(q);
+      if (!match) return false;
+      if (filter === 'active')     return k.active && !(k.expires_at && new Date(k.expires_at) < new Date());
+      if (filter === 'inactive')   return !k.active || (k.expires_at && new Date(k.expires_at) < new Date());
+      if (filter === 'unassigned') return !k.user_id;
+      return true;
+    });
+
+    const tbody = document.getElementById('keyBody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No keys found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(k => {
+      const expired  = k.expires_at && new Date(k.expires_at) < new Date();
+      const active   = k.active && !expired;
+      const statusBadge = active
+        ? `<span class="badge badge-green"><span class="pill-dot green"></span> Active</span>`
+        : `<span class="badge badge-red">${expired ? 'Expired' : 'Revoked'}</span>`;
+
+      const hwidStatus = k.hwid
+        ? `<span class="badge badge-dim" title="${k.hwid}">Bound</span>`
+        : `<span style="color:var(--dim);font-size:0.78rem;">—</span>`;
+
+      return `
+        <tr>
+          <td class="key-code-cell" onclick="copyKey('${k.key_code}',this)" title="Click to copy">${k.key_code}</td>
+          <td class="bold">${k.product || '—'}</td>
+          <td>${k.assigned_to
+                ? `<span>${k.assigned_to}</span>`
+                : `<span style="color:var(--dim)">Unassigned</span>`}</td>
+          <td>${fmtDate(k.expires_at)}</td>
+          <td>${hwidStatus}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <div class="admin-actions">
+              <button class="btn btn-outline btn-sm" onclick="openAssign(${k.id})">Assign</button>
+              <button class="btn btn-outline btn-sm" onclick="openExpiry(${k.id}, '${k.expires_at || ''}')">Expiry</button>
+              ${k.hwid ? `<button class="btn btn-outline btn-sm" onclick="resetHwid(${k.id})">Reset HWID</button>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="toggleActive(${k.id}, ${active})">${active ? 'Revoke' : 'Activate'}</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteKey(${k.id})">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ── Users rendering ───────────────────────────────────────────────────────────
+  function filterUsers() { renderUsers(); }
+
+  function renderUsers() {
+    const q    = document.getElementById('userSearch').value.toLowerCase();
+    const rows = !q ? allUsers : allUsers.filter(u =>
+      u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    );
+
+    const tbody = document.getElementById('userBody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No users found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(u => `
+      <tr>
+        <td class="bold">${u.username}${u.role === 'admin' ? '<span class="tag-admin">admin</span>' : ''}</td>
+        <td style="color:var(--dim)">${u.email}</td>
+        <td>${u.role}</td>
+        <td>${u.key_count}</td>
+        <td style="color:var(--dim)">${new Date(u.created_at).toLocaleDateString()}</td>
+        <td>
+          <div class="admin-actions">
+            <button class="btn btn-outline btn-sm" onclick="toggleRole(${u.id}, '${u.role}')">
+              ${u.role === 'admin' ? 'Make User' : 'Make Admin'}
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${u.username}')">Delete</button>
+          </div>
+        </td>
+      </tr>`
+    ).join('');
+  }
+
+  // ── Actions ───────────────────────────────────────────────────────────────────
+  function copyKey(code, el) {
+    navigator.clipboard.writeText(code).then(() => {
+      const orig = el.textContent;
+      el.textContent = 'Copied!';
+      el.classList.add('copied');
+      setTimeout(() => { el.textContent = orig; el.classList.remove('copied'); }, 1500);
+    });
+  }
+
+  async function generateKeys() {
+    const product  = document.getElementById('genProduct').value.trim();
+    const expires  = document.getElementById('genExpiry').value;
+    const user_id  = document.getElementById('genUser').value || null;
+    const count    = parseInt(document.getElementById('genCount').value) || 1;
+    const note     = document.getElementById('genNote').value.trim();
+
+    if (!product) { alert('Enter a product name.'); return; }
+
+    const keys = await api('/admin/keys/generate', {
+      method: 'POST',
+      body: { product, expires_at: expires || null, user_id, note: note || null, count },
+    });
+
+    const box = document.getElementById('genOutput');
+    box.textContent = keys.map(k => k.key_code).join('\n');
+    box.classList.add('show');
+
+    await loadAll();
+  }
+
+  function openAssign(keyId) {
+    assigningKeyId = keyId;
+    document.getElementById('assignModal').classList.add('open');
+  }
+
+  async function doAssign() {
+    const user_id = document.getElementById('assignUser').value;
+    if (!user_id) { alert('Select a user.'); return; }
+    await api(`/admin/keys/${assigningKeyId}/assign`, { method: 'PATCH', body: { user_id } });
+    closeModal('assignModal');
+    await loadAll();
+  }
+
+  function openExpiry(keyId, current) {
+    updatingKeyId = keyId;
+    if (current) {
+      const local = new Date(current);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      document.getElementById('newExpiry').value = local.toISOString().slice(0, 16);
+    } else {
+      document.getElementById('newExpiry').value = '';
+    }
+    document.getElementById('expiryModal').classList.add('open');
+  }
+
+  async function doUpdateExpiry() {
+    const v = document.getElementById('newExpiry').value;
+    await api(`/admin/keys/${updatingKeyId}/expiry`, { method: 'PATCH', body: { expires_at: v || null } });
+    closeModal('expiryModal');
+    await loadAll();
+  }
+
+  async function resetHwid(id) {
+    if (!confirm('Reset HWID binding for this key?')) return;
+    await api(`/admin/keys/${id}/reset-hwid`, { method: 'PATCH' });
+    await loadAll();
+  }
+
+  async function toggleActive(id, currentlyActive) {
+    const action = currentlyActive ? 'revoke' : 'activate';
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} this key?`)) return;
+    await api(`/admin/keys/${id}/active`, { method: 'PATCH', body: { active: !currentlyActive } });
+    await loadAll();
+  }
+
+  async function deleteKey(id) {
+    if (!confirm('Permanently delete this key? This cannot be undone.')) return;
+    await api(`/admin/keys/${id}`, { method: 'DELETE' });
+    await loadAll();
+  }
+
+  async function toggleRole(id, current) {
+    const newRole = current === 'admin' ? 'user' : 'admin';
+    if (!confirm(`Change this user to ${newRole}?`)) return;
+    await api(`/admin/users/${id}/role`, { method: 'PATCH', body: { role: newRole } });
+    await loadAll();
+  }
+
+  async function deleteUser(id, name) {
+    if (!confirm(`Delete user "${name}"? Their keys will be unassigned.`)) return;
+    await api(`/admin/users/${id}`, { method: 'DELETE' });
+    await loadAll();
+  }
+
+  loadAll();
+</script>
+</body>
+</html>

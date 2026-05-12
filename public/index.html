@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rage.lua — FiveM Trainer</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Landing-only styles ── */
+    .hero {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 100px 40px 80px;
+      text-align: center;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 0.73rem;
+      color: var(--dim);
+      letter-spacing: 0.05em;
+      margin-bottom: 36px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: blink 2.5s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    .hero-title {
+      font-size: clamp(3.5rem, 11vw, 7.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 20px;
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--dim);
+      max-width: 500px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .hero-actions .btn { padding: 10px 24px; font-size: 0.88rem; }
+
+    /* ── Info strip ── */
+    .info-strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--dim);
+      letter-spacing: 0.04em;
+    }
+    .info-item .check { color: var(--green); }
+
+    /* ── Features ── */
+    .features-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    .features-header {
+      margin-bottom: 52px;
+    }
+
+    .features-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 10px;
+    }
+
+    .features-title {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .cat-block {
+      background: var(--bg2);
+      padding: 28px 24px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cat-block:hover { background: var(--bg3); }
+
+    .cat-name {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 16px;
+    }
+
+    .feat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .feat-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      font-size: 0.84rem;
+      color: #ccc;
+    }
+
+    .feat-list li::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--dim);
+      flex-shrink: 0;
+      margin-top: 7px;
+    }
+
+    /* ── Undetected section ── */
+    .ud-section {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .ud-section h2 {
+      font-size: clamp(1.4rem, 3.5vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .ud-section p {
+      color: var(--dim);
+      font-size: 0.88rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .ud-badges {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+
+    .ud-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      color: var(--dim);
+    }
+    .ud-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+    /* ── Access section ── */
+    .access-section {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 80px 40px;
+      text-align: center;
+    }
+
+    .access-section h2 {
+      font-size: clamp(1.4rem, 3.5vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .access-section p {
+      color: var(--dim);
+      font-size: 0.88rem;
+      margin-bottom: 28px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    footer p { font-size: 0.78rem; color: var(--dim); }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+  <div class="nav-right">
+    <a href="/login" class="btn btn-ghost">Login</a>
+    <a href="/register" class="btn btn-solid">Get Access</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="status-badge">
+    <span class="status-dot"></span>
+    Undetected &mdash; Updated May 2026
+  </div>
+  <h1 class="hero-title">rage.lua</h1>
+  <p class="hero-sub">
+    The most complete FiveM client-side trainer. God mode, aimbot, ESP, player tools, vehicle spawner — all in one lightweight Lua script.
+  </p>
+  <div class="hero-actions">
+    <a href="/register" class="btn btn-solid">Get Access &rarr;</a>
+    <a href="#features" class="btn btn-outline">View Features</a>
+  </div>
+</div>
+
+<!-- Info strip -->
+<div class="info-strip">
+  <div class="info-item"><span class="check">&#10003;</span> Undetected</div>
+  <div class="info-item"><span class="check">&#10003;</span> HWID Locked</div>
+  <div class="info-item"><span class="check">&#10003;</span> Ham &amp; redENGINE</div>
+  <div class="info-item"><span class="check">&#10003;</span> Anticheat Bypasses</div>
+  <div class="info-item"><span class="check">&#10003;</span> Persistent Config</div>
+  <div class="info-item"><span class="check">&#10003;</span> Lifetime Updates</div>
+</div>
+
+<!-- Features -->
+<div class="features-wrap" id="features">
+  <div class="features-header">
+    <div class="features-label">What's included</div>
+    <h2 class="features-title">Every feature, in one script.</h2>
+  </div>
+
+  <div class="category-grid">
+
+    <div class="cat-block">
+      <div class="cat-name">Self &amp; Protection</div>
+      <ul class="feat-list">
+        <li>God Mode</li>
+        <li>Invisible</li>
+        <li>No Ragdoll</li>
+        <li>No Fall Damage</li>
+        <li>Remove Wanted Level</li>
+        <li>Night Vision</li>
+        <li>Thermal Vision</li>
+        <li>Anti-Teleport</li>
+        <li>Anti-Block Control</li>
+        <li>Anti-Carry</li>
+        <li>Anti-Headshot</li>
+        <li>Anti-Cuff</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">Movement</div>
+      <ul class="feat-list">
+        <li>Custom Noclip (Speed Slider 1–10)</li>
+        <li>Noclip Freecam Crosshair Overlay</li>
+        <li>Super Jump</li>
+        <li>Infinite Stamina</li>
+        <li>Fast Run (Speed Override)</li>
+        <li>Teleport to Waypoint</li>
+        <li>Spoof Teleport (Anti-Detect)</li>
+        <li>Door Unlocker — Nearby &amp; Auto</li>
+        <li>Unlock Radius Slider (2–25m)</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">Combat</div>
+      <ul class="feat-list">
+        <li>FOV Aimbot with Smooth Lerp</li>
+        <li>Bone Targeting — Head / Spine / Pelvis</li>
+        <li>Wall Penetration Toggle</li>
+        <li>Visibility Check Toggle</li>
+        <li>Silent Aim (FOV Slider 1–30)</li>
+        <li>One Shot Kill</li>
+        <li>Infinite Ammo &amp; Clip</li>
+        <li>Force Weapon (Strip-Prevention)</li>
+        <li>Refill Ammo / Max All Ammo</li>
+        <li>Give All Weapons</li>
+        <li>Remove All Weapons</li>
+        <li>Weapon Spawn by Name</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">ESP &amp; Visuals</div>
+      <ul class="feat-list">
+        <li>Bounding Box ESP</li>
+        <li>Corner Bracket Style</li>
+        <li>Player Names</li>
+        <li>Distance Display</li>
+        <li>Health Bars</li>
+        <li>Skeleton Lines</li>
+        <li>Snaplines</li>
+        <li>Custom RGB Color (R/G/B Sliders)</li>
+        <li>Night Vision &amp; Thermal overlays</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">Players</div>
+      <ul class="feat-list">
+        <li>Spectate &amp; Stop Spectate</li>
+        <li>Teleport To Player</li>
+        <li>Bring Player To Me</li>
+        <li>Freeze Player</li>
+        <li>Strip Weapons</li>
+        <li>5-Star Wanted Level</li>
+        <li>Kick From Vehicle</li>
+        <li>Copy Appearance</li>
+        <li>Cage Player (Prop Trap)</li>
+        <li>Launch Up (Ragdoll + Velocity)</li>
+        <li>Set On Fire</li>
+        <li>Taze (Stun Gun)</li>
+        <li>Rabbit Player (Ped Swap)</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">Appearance</div>
+      <ul class="feat-list">
+        <li>12 Premade Outfits (Black Suit, White Suit, Biker, Military, Lowrider, Tracksuit…)</li>
+        <li>Custom Outfit Save &amp; Load (Named Slots)</li>
+        <li>Randomize Outfit</li>
+        <li>Story Peds — Michael, Franklin, Trevor, Lamar…</li>
+        <li>Emergency — LSPD, SWAT, FIB, Army…</li>
+        <li>Gangs — Vagos, Ballas, Families…</li>
+        <li>Special — Zombie, Clown, Alien, Monkey…</li>
+        <li>Enter Any Ped Model by Name</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">Vehicles</div>
+      <ul class="feat-list">
+        <li>Spawn Any Vehicle by Name</li>
+        <li>Preset Vehicle List</li>
+        <li>Cargo Plane on Player</li>
+        <li>Unlock Nearby Doors (Radius)</li>
+        <li>Auto Door Unlock Thread</li>
+      </ul>
+    </div>
+
+    <div class="cat-block">
+      <div class="cat-name">Config &amp; Binds</div>
+      <ul class="feat-list">
+        <li>Persistent Config via FiveM KVP</li>
+        <li>Ham File API Fallback</li>
+        <li>Custom Hotkeys for All Toggles</li>
+        <li>Custom Menu Accent Color</li>
+        <li>Key Picker (Hold to Bind)</li>
+        <li>HWID-Locked License Keys</li>
+        <li>Expiry-Based Key System</li>
+        <li>Blacklist URL Check</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- Undetected section -->
+<div class="ud-section">
+  <h2>Built to stay undetected.</h2>
+  <p>Every feature is designed around FiveM's anticheat. Spoof teleports, anti-detection flags, and a HWID-locked key system keep you safe.</p>
+  <div class="ud-badges">
+    <div class="ud-badge"><span class="dot"></span> Undetected on FiveM Anticheat</div>
+    <div class="ud-badge"><span class="dot"></span> Spoof Teleport — No AC Trigger</div>
+    <div class="ud-badge"><span class="dot"></span> HWID-Locked Keys</div>
+    <div class="ud-badge"><span class="dot"></span> Blacklist System</div>
+    <div class="ud-badge"><span class="dot"></span> Ham &amp; redENGINE Compatible</div>
+    <div class="ud-badge"><span class="dot"></span> Anti-Control Bypasses</div>
+  </div>
+</div>
+
+<!-- Access section -->
+<div class="access-section">
+  <h2>Ready to get started?</h2>
+  <p>Create your account and get access to rage.lua. Keys are managed by admins — contact to purchase.</p>
+  <div class="hero-actions">
+    <a href="/register" class="btn btn-solid">Create Account &rarr;</a>
+    <a href="/login" class="btn btn-outline">Login</a>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <a href="/" class="nav-logo">rage</a>
+  <p>rage.lua &mdash; FiveM Client Trainer &mdash; 2026</p>
+</footer>
+
+</body>
+</html>

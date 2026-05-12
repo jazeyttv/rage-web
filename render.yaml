@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: rage-web
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rage-db
+          property: connectionString
+
+databases:
+  - name: rage-db
+    databaseName: rage
+    plan: free

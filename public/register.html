@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register — rage.lua</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <span class="auth-logo">rage</span>
+    <h1 class="auth-title">Create your account.</h1>
+    <p class="auth-sub">Sign up to access your rage.lua license keys.</p>
+
+    <div class="error-msg" id="err"></div>
+
+    <form class="auth-form" id="regForm">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" type="text" id="username" placeholder="yourname" autocomplete="username" required minlength="3" maxlength="50" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="email" placeholder="you@example.com" autocomplete="email" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password" required minlength="8" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <input class="form-input" type="password" id="confirm" placeholder="Repeat password" autocomplete="new-password" required />
+      </div>
+      <button type="submit" class="btn btn-solid" style="width:100%;justify-content:center;padding:11px;">
+        Create Account
+      </button>
+    </form>
+
+    <p class="auth-footer">Already have an account? <a href="/login">Login</a></p>
+  </div>
+</div>
+
+<script>
+  const t = localStorage.getItem('token');
+  if (t) {
+    const p = JSON.parse(atob(t.split('.')[1]));
+    window.location = p.role === 'admin' ? '/admin' : '/dashboard';
+  }
+
+  document.getElementById('regForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = document.getElementById('err');
+    err.classList.remove('show');
+
+    const pw  = document.getElementById('password').value;
+    const cf  = document.getElementById('confirm').value;
+    if (pw !== cf) {
+      err.textContent = 'Passwords do not match';
+      err.classList.add('show');
+      return;
+    }
+
+    const btn = e.target.querySelector('button');
+    btn.textContent = 'Creating account...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value.trim(),
+          email:    document.getElementById('email').value.trim(),
+          password: pw,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      window.location = data.user.role === 'admin' ? '/admin' : '/dashboard';
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.add('show');
+      btn.textContent = 'Create Account';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

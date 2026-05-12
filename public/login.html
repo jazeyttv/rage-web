@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — rage.lua</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">rage</a>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <span class="auth-logo">rage</span>
+    <h1 class="auth-title">Welcome back.</h1>
+    <p class="auth-sub">Sign in to your account to view your keys.</p>
+
+    <div class="error-msg" id="err"></div>
+
+    <form class="auth-form" id="loginForm">
+      <div class="form-group">
+        <label class="form-label">Username or Email</label>
+        <input class="form-input" type="text" id="username" placeholder="yourname" autocomplete="username" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="password" placeholder="••••••••" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="btn btn-solid" style="width:100%;justify-content:center;padding:11px;">
+        Login
+      </button>
+    </form>
+
+    <p class="auth-footer">Don't have an account? <a href="/register">Register</a></p>
+  </div>
+</div>
+
+<script>
+  // Redirect if already logged in
+  const t = localStorage.getItem('token');
+  if (t) {
+    const p = JSON.parse(atob(t.split('.')[1]));
+    window.location = p.role === 'admin' ? '/admin' : '/dashboard';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = document.getElementById('err');
+    err.classList.remove('show');
+    const btn = e.target.querySelector('button');
+    btn.textContent = 'Signing in...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value.trim(),
+          password: document.getElementById('password').value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      window.location = data.user.role === 'admin' ? '/admin' : '/dashboard';
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.add('show');
+      btn.textContent = 'Login';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
