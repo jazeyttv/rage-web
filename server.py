@@ -3,6 +3,8 @@ rage web server — Flask + MongoDB
 """
 
 import os, secrets, string, random
+from dotenv import load_dotenv
+load_dotenv()
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from pathlib import Path
